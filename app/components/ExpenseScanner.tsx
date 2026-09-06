@@ -663,6 +663,14 @@ export default function ExpenseScanner() {
             </svg>
             Googleでログイン
           </button>
+          {process.env.NODE_ENV !== "production" && (
+            <button
+              onClick={() => signIn("test-login")}
+              className="text-xs text-gray-500 hover:text-amber-400 underline cursor-pointer"
+            >
+              テストログイン（開発環境のみ）
+            </button>
+          )}
         </div>
       </div>
     );
