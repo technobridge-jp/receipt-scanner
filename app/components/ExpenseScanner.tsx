@@ -331,7 +331,7 @@ export default function ExpenseScanner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [driveStatus, setDriveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [cameraOpen, setCameraOpen] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerStatus, setScannerStatus] = useState<string | null>(null);
@@ -365,19 +365,19 @@ export default function ExpenseScanner() {
     });
   }, []);
 
-  // Drive保存（重複チェック含む）
-  const saveToDrive = useCallback(async (newReceipts: Receipt[], imageUrl: string | null = null): Promise<boolean> => {
-    if (!session?.accessToken) return true;
+  // DB保存（重複チェック含む）。新規レシートのみ送るので、既存分の再送は不要。
+  const saveReceipts = useCallback(async (newReceipts: Receipt[], imageUrl: string | null = null): Promise<boolean> => {
+    if (!session) return true;
     const byMonth: Record<string, Receipt[]> = {};
     for (const r of newReceipts) {
       const m = r.date?.slice(0, 7) || new Date().toISOString().slice(0, 7);
       if (!byMonth[m]) byMonth[m] = [];
       byMonth[m].push(r);
     }
-    setDriveStatus("saving");
+    setSaveStatus("saving");
     try {
       for (const [month, recs] of Object.entries(byMonth)) {
-        const existing = await fetch(`/api/drive?month=${month}`).then(r => r.json());
+        const existing = await fetch(`/api/receipts?month=${month}`).then(r => r.json());
         const existingReceipts: Receipt[] = existing.receipts || [];
         const dups = findDuplicates(existingReceipts, recs);
         const newRecs = recs.filter(r => !dups.find(d => d.date === r.date && d.total === r.total));
@@ -387,18 +387,17 @@ export default function ExpenseScanner() {
           if (ok) recsToSave = [...newRecs, ...recs.filter(r => dups.find(d => d.date === r.date && d.total === r.total))];
         }
         if (recsToSave.length === 0) continue;
-        const merged = [...existingReceipts.filter(e => !recsToSave.find(n => n.id === e.id)), ...recsToSave];
-        await fetch("/api/drive", {
+        await fetch("/api/receipts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month, data: { receipts: merged } }),
+          body: JSON.stringify({ receipts: recsToSave }),
         });
       }
-      setDriveStatus("saved");
-      setTimeout(() => setDriveStatus("idle"), 3000);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3000);
       return true;
     } catch {
-      setDriveStatus("error");
+      setSaveStatus("error");
       return true;
     }
   }, [session, confirmDuplicate]);
@@ -434,7 +433,7 @@ export default function ExpenseScanner() {
           })),
         }));
         setReceipts(newReceipts);
-        await saveToDrive(newReceipts, reader.result as string);
+        await saveReceipts(newReceipts, reader.result as string);
       } catch {
         setError("通信エラーが発生しました");
       } finally {
@@ -442,7 +441,7 @@ export default function ExpenseScanner() {
       }
     };
     reader.readAsDataURL(file);
-  }, [saveToDrive]);
+  }, [saveReceipts]);
 
   // Chrome拡張経由でスキャン
   const scanFromScanner = useCallback(async () => {
@@ -498,7 +497,7 @@ export default function ExpenseScanner() {
         })),
       }));
       setReceipts(newReceipts);
-      await saveToDrive(newReceipts);
+      await saveReceipts(newReceipts);
 
     } catch (e: unknown) {
       setScannerError(e instanceof Error ? e.message : "スキャンに失敗しました");
@@ -506,7 +505,7 @@ export default function ExpenseScanner() {
       setScannerLoading(false);
       setScannerStatus(null);
     }
-  }, [saveToDrive]);
+  }, [saveReceipts]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -521,48 +520,35 @@ export default function ExpenseScanner() {
     setReceipts(next);
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
-      if (!session?.accessToken) return;
-      const month = updated.date?.slice(0, 7) || new Date().toISOString().slice(0, 7);
-      setDriveStatus("saving");
+      if (!session) return;
+      setSaveStatus("saving");
       try {
-        const existing = await fetch(`/api/drive?month=${month}`).then(r => r.json());
-        const existingReceipts: Receipt[] = existing.receipts || [];
-        const merged = existingReceipts.map(r => r.id === updated.id ? updated : r);
-        if (!merged.find(r => r.id === updated.id)) merged.push(updated);
-        await fetch("/api/drive", {
-          method: "POST",
+        await fetch(`/api/receipts/${updated.id}`, {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month, data: { receipts: merged } }),
+          body: JSON.stringify(updated),
         });
-        setDriveStatus("saved");
-        setTimeout(() => setDriveStatus("idle"), 3000);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 3000);
       } catch {
-        setDriveStatus("error");
+        setSaveStatus("error");
       }
     }, 1000);
   };
 
   const deleteReceipt = async (receipt: Receipt) => {
-    if (!session?.accessToken) return;
-    const month = receipt.date?.slice(0, 7) || new Date().toISOString().slice(0, 7);
+    if (!session) return;
     // 表示中レシートから削除
     setReceipts(prev => prev.filter(r => r.id !== receipt.id));
-    // Driveから削除
+    // DBから削除
     try {
-      const existing = await fetch(`/api/drive?month=${month}`).then(r => r.json());
-      const existingReceipts: Receipt[] = existing.receipts || [];
-      const filtered = existingReceipts.filter(r => r.id !== receipt.id);
-      await fetch("/api/drive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month, data: { receipts: filtered } }),
-      });
+      await fetch(`/api/receipts/${receipt.id}`, { method: "DELETE" });
     } catch {
       // 失敗しても表示からは除去済み
     }
   };
 
-  // 指定期間(startMonth〜endMonth)のレシートをDriveから取得（日付で絞り込み・日付昇順）
+  // 指定期間(startMonth〜endMonth)のレシートをDBから取得（日付で絞り込み・日付昇順）
   const fetchReceiptsForPeriod = async (): Promise<Receipt[]> => {
     const months: string[] = [];
     const [sy, sm] = startMonth.split("-").map(Number);
@@ -575,10 +561,10 @@ export default function ExpenseScanner() {
     }
     const allReceipts: Receipt[] = [];
     for (const month of months) {
-      const data = await fetch(`/api/drive?month=${month}`).then(r => r.json());
+      const data = await fetch(`/api/receipts?month=${month}`).then(r => r.json());
       if (data.receipts) allReceipts.push(...data.receipts);
     }
-    // レシートの日付で絞り込み（Driveファイルとレシート日付が異なる場合を考慮）
+    // レシートの日付で絞り込み（月の範囲取得とレシート自体の日付が異なる場合を考慮）
     return allReceipts
       .filter(r => {
         const m = r.date?.slice(0, 7);
@@ -713,9 +699,9 @@ export default function ExpenseScanner() {
           {/* ユーザー */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-400">{session.user?.email}</span>
-            {driveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
-            {driveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
-            {driveStatus === "error" && <span className="text-xs text-red-400">⚠ 保存失敗</span>}
+            {saveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
+            {saveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
+            {saveStatus === "error" && <span className="text-xs text-red-400">⚠ 保存失敗</span>}
             <button onClick={() => signOut()} className="text-xs text-gray-500 hover:text-gray-300 cursor-pointer">
               ログアウト
             </button>
@@ -855,8 +841,8 @@ export default function ExpenseScanner() {
             <div className="flex items-center justify-between mb-3">
               <span className="text-gray-400 text-sm">{receipts.length}件のレシートを検出</span>
               <div className="flex items-center gap-3">
-                {driveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
-                {driveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
+                {saveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
+                {saveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
                 <button
                   onClick={() => { setReceipts([]); setError(null); }}
                   className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors cursor-pointer"

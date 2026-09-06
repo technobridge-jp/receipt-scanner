@@ -4,8 +4,8 @@ import { GoogleAnalytics } from "./components/GoogleAnalytics";
 import SessionProvider from "./components/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "経費仕分けツール — AI OCR + Google Drive",
-  description: "レシートをスキャンして仕事/家庭を仕分け。確定申告用CSV出力。Google Driveに自動保存。",
+  title: "経費仕分けツール — AI OCR",
+  description: "レシートをスキャンして仕事/家庭を仕分け。確定申告用CSV出力。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

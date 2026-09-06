@@ -1,66 +1,43 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { db } from "@/lib/db";
 
-async function refreshAccessToken(token: Record<string, unknown>) {
-  try {
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken as string,
-      }),
-    });
-    const refreshed = await res.json();
-    if (!res.ok) throw refreshed;
-    return {
-      ...token,
-      accessToken: refreshed.access_token,
-      accessTokenExpires: Date.now() + refreshed.expires_in * 1000,
-      refreshToken: refreshed.refresh_token ?? token.refreshToken,
-    };
-  } catch (e) {
-    console.error("RefreshAccessToken error", e);
-    return { ...token, error: "RefreshAccessTokenError" };
-  }
-}
-
+// ログインは Google アカウント認証のみ。
+// 許可リスト制: User テーブルに存在するメールだけログインを許す（自己登録なし）。
+// Google Drive を使わなくなったため drive.file スコープ・アクセストークンの
+// リフレッシュ処理は廃止（openid email profile のみで十分）。
 const handler = NextAuth({
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: {
-        params: {
-          scope: "openid email profile https://www.googleapis.com/auth/drive.file",
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      // 初回ログイン
-      if (account) {
-        return {
-          ...token,
-          accessToken: account.access_token,
-          accessTokenExpires: account.expires_at ? account.expires_at * 1000 : Date.now() + 3600 * 1000,
-          refreshToken: account.refresh_token,
-        };
+    // 許可リスト: User テーブルに存在するメールだけログインを許す。
+    async signIn({ user }) {
+      const email = user?.email?.toLowerCase();
+      if (!email) return false;
+      const known = await db.user.findUnique({ where: { email }, select: { id: true } });
+      return Boolean(known);
+    },
+    // サインイン時に DB から id と role を載せる（テナント解決に使う）。
+    async jwt({ token, user }) {
+      const email = (user?.email ?? token.email)?.toLowerCase();
+      if (email) {
+        const u = await db.user.findUnique({ where: { email }, select: { id: true, role: true } });
+        if (u) {
+          token.id = u.id;
+          token.role = u.role;
+        }
       }
-      // トークンがまだ有効
-      if (Date.now() < (token.accessTokenExpires as number)) {
-        return token;
-      }
-      // 期限切れ → リフレッシュ
-      return refreshAccessToken(token);
+      return token;
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+      }
       return session;
     },
   },
