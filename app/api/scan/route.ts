@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
+import { logUsage } from "@/lib/logUsage";
+import { ai, GEMINI_MODEL } from "@/lib/gemini";
 
 export const maxDuration = 120;
-
-const GEMINI_STREAM_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent";
 
 const SYSTEM_PROMPT = `あなたはレシート読み取りの専門AIです。画像またはPDFに含まれる全てのレシートを個別に識別して読み取り、以下のJSON配列形式で出力してください。
 
@@ -63,7 +63,7 @@ const SYSTEM_PROMPT = `あなたはレシート読み取りの専門AIです。�
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!apiKey && process.env.GEMINI_BACKEND !== 'vertex') {
     return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), { status: 500 });
   }
 
@@ -74,72 +74,44 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: "image and mimeType are required" }), { status: 400 });
     }
 
-    const geminiRes = await fetch(`${GEMINI_STREAM_URL}?key=${apiKey}&alt=sse`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: SYSTEM_PROMPT },
-              { inline_data: { mime_type: mimeType, data: image } },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: SYSTEM_PROMPT },
+            {
+              inlineData: {
+                mimeType: mimeType,
+                data: image,
+              },
+            },
+          ],
         },
-      }),
-    });
-
-    if (!geminiRes.ok || !geminiRes.body) {
-      const errorText = await geminiRes.text();
-      console.error("Gemini API error:", errorText);
-      return new Response(JSON.stringify({ error: "AI API error", detail: errorText }), { status: 502 });
-    }
-
-    // GeminiのSSEストリームを読み取り、テキストを結合してクライアントに返す
-    const stream = new ReadableStream({
-      async start(controller) {
-        const reader = geminiRes.body!.getReader();
-        const decoder = new TextDecoder();
-        let accumulated = "";
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            // SSE形式: "data: {...}\n\n" からJSONを抽出
-            const lines = chunk.split("\n");
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              const jsonStr = line.slice(6).trim();
-              if (!jsonStr || jsonStr === "[DONE]") continue;
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) accumulated += text;
-              } catch { /* 不完全なチャンクはスキップ */ }
-            }
-          }
-
-          // 結合したテキストをJSONとしてパース
-          const receipts = JSON.parse(accumulated);
-          const receiptsArray = Array.isArray(receipts) ? receipts : [receipts];
-          controller.enqueue(new TextEncoder().encode(JSON.stringify({ receipts: receiptsArray })));
-        } catch (e) {
-          console.error("Stream parse error:", e, "accumulated:", accumulated.slice(0, 200));
-          controller.enqueue(new TextEncoder().encode(JSON.stringify({ error: "Failed to parse AI response" })));
-        } finally {
-          controller.close();
-        }
+      ],
+      config: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
       },
     });
 
-    return new Response(stream, {
+    const text = response.text;
+    if (!text) {
+      console.error("Gemini returned empty response");
+      return new Response(JSON.stringify({ error: "AI returned empty response" }), { status: 502 });
+    }
+
+    logUsage({
+      project: "receipt-scanner",
+      model: GEMINI_MODEL,
+      inputTokens: response.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: response.usageMetadata?.candidatesTokenCount ?? 0,
+    });
+
+    const receipts = JSON.parse(text);
+    const receiptsArray = Array.isArray(receipts) ? receipts : [receipts];
+    return new Response(JSON.stringify({ receipts: receiptsArray }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
