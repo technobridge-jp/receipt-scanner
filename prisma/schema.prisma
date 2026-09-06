@@ -1,0 +1,106 @@
+// receipt-scanner — マルチテナント化 フェーズ0 データモデル
+//
+// テクノブリッジの標準パターンに準拠（参照実装: securebase）。
+// tenantId を持つモデル（Receipt / ReceiptItem）は Row Level Security で分離する。
+// Tenant / User / UserTenant は全社共通の制御テーブルなので RLS 対象外
+// （アクセスは必ず明示的な where 句で絞る）。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // 実行時（Prisma Client）はアプリ専用ロール（非BYPASSRLS）で接続し、RLS を効かせる。
+  url      = env("DATABASE_URL")
+  // マイグレーション/DDL は所有者ロールで実行する（RLS の対象外操作のため）。
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN // 全テナントへアクセス可
+  STAFF // UserTenant で割当られたテナントのみアクセス可
+}
+
+enum Classification {
+  BUSINESS // 仕事
+  PERSONAL // 家庭
+  SPLIT // 按分
+}
+
+model Tenant {
+  id           String        @id @default(cuid())
+  name         String
+  receipts     Receipt[]
+  receiptItems ReceiptItem[]
+  // スタッフの担当割当（最小権限）。ADMIN は割当に依らず全テナントへアクセス可。
+  userTenants  UserTenant[]
+  createdAt    DateTime      @default(now())
+}
+
+model User {
+  // ログインするスタッフ（テクノブリッジ社員 / 将来的に顧問先ごとの担当者）
+  id        String       @id @default(cuid())
+  email     String       @unique
+  name      String?
+  role      UserRole     @default(STAFF)
+  tenants   UserTenant[]
+  receipts  Receipt[]
+  createdAt DateTime     @default(now())
+}
+
+model UserTenant {
+  // スタッフ ⇔ テナントの担当割当。全社共通の制御テーブル（RLS 対象外）。
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tenantId])
+}
+
+model Receipt {
+  id            String        @id @default(cuid())
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId        String // スキャンしたスタッフ
+  user          User          @relation(fields: [userId], references: [id])
+  storeName     String?
+  date          String // YYYY-MM-DD（AIのOCR出力形式に合わせる）
+  subtotal      Int?
+  tax8          Int?
+  tax10         Int?
+  total         Int?
+  paymentMethod String?
+  confidence    Float?
+  warnings      Json? // string[]
+  items         ReceiptItem[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, date])
+}
+
+model ReceiptItem {
+  id             String         @id @default(cuid())
+  // 非正規化: Receipt経由ではなくReceiptItem単体でもRLSでテナント分離できるようにする
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  receiptId      String
+  receipt        Receipt        @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  name           String
+  quantity       Int?
+  unitPrice      Int?
+  amount         Int?
+  taxRate        Int?
+  confidence     Float?
+  category       String?
+  classification Classification @default(BUSINESS)
+  splitRatio     Int             @default(100)
+
+  @@index([tenantId])
+  @@index([tenantId, category])
+}
