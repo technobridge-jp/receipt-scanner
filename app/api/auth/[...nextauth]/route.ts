@@ -15,6 +15,13 @@ import { db } from "@/lib/db";
 const testLoginEnabled = process.env.ENABLE_TEST_LOGIN === "true" && process.env.NODE_ENV !== "production";
 const TEST_LOGIN_EMAIL = "test-admin@example.com"; // prisma/seed.tsで作成する検証専用アカウント
 
+// 営業デモ用ログイン: 本番でも有効化できる（ENABLE_DEMO_LOGIN=true のみで判定。NODE_ENV制限なし）。
+// ログイン先は固定の1アカウントのみ・役割選択はさせない（本番でADMIN相当を選べる余地を作らないため）。
+// 対象アカウントは prisma/seed-demo.ts が作成し、デモ専用テナントにのみ UserTenant で割当済み。
+// 実データ（テクノブリッジの実経費データ）には到達できない。
+const demoLoginEnabled = process.env.ENABLE_DEMO_LOGIN === "true";
+const DEMO_LOGIN_EMAIL = process.env.DEMO_LOGIN_EMAIL || "demo@example.com";
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -30,6 +37,22 @@ const handler = NextAuth({
             async authorize() {
               const user = await db.user.findUnique({ where: { email: TEST_LOGIN_EMAIL } });
               if (!user) return null;
+              return { id: user.id, email: user.email, name: user.name, role: user.role };
+            },
+          }),
+        ]
+      : []),
+    ...(demoLoginEnabled
+      ? [
+          CredentialsProvider({
+            id: "demo-login",
+            name: "デモログイン",
+            credentials: {},
+            async authorize() {
+              const user = await db.user.findUnique({ where: { email: DEMO_LOGIN_EMAIL } });
+              // 安全弁: デモアカウントは常にSTAFF（デモ専用テナント限定）として扱う。
+              // 万一DB上でroleがADMIN等に変わっていても、本番デモ経路では絶対に昇格させない。
+              if (!user || user.role !== "STAFF") return null;
               return { id: user.id, email: user.email, name: user.name, role: user.role };
             },
           }),

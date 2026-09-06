@@ -671,6 +671,14 @@ export default function ExpenseScanner() {
               テストログイン（開発環境のみ）
             </button>
           )}
+          {process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true" && (
+            <button
+              onClick={() => signIn("demo-login")}
+              className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-400 text-sm hover:bg-amber-500/10 cursor-pointer"
+            >
+              🎬 デモを見る
+            </button>
+          )}
         </div>
       </div>
     );
