@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import { CATEGORIES, Classification, Receipt, ReceiptItem, businessAmount } from "@/lib/types";
 
 // --- カメラキャプチャモーダル ---
 function CameraModal({ onCapture, onClose }: {
@@ -68,54 +69,11 @@ function CameraModal({ onCapture, onClose }: {
   );
 }
 
-// --- 型定義 ---
-type Classification = "business" | "personal" | "split";
-
-interface ReceiptItem {
-  name: string;
-  quantity: number;
-  unit_price: number;
-  amount: number;
-  tax_rate: number;
-  confidence: number;
-  category: string;
-  classification: Classification;
-  split_ratio: number;
-}
-
-interface Receipt {
-  id: string;
-  store_name: string;
-  date: string;
-  items: ReceiptItem[];
-  subtotal: number;
-  tax_8: number;
-  tax_10: number;
-  total: number;
-  payment_method: string;
-  confidence: number;
-  warnings: string[];
-}
-
 // 日付+合計金額が一致するレシートを重複とみなす（店舗名はOCRブレがあるため除外）
 function findDuplicates(existing: Receipt[], incoming: Receipt[]): Receipt[] {
   return incoming.filter(r =>
     existing.some(s => s.date === r.date && s.total === r.total)
   );
-}
-
-// 勘定科目リスト
-const CATEGORIES = [
-  "会議費", "交際費", "消耗品費", "新聞図書費", "旅費交通費",
-  "通信費", "車両費", "荷造運賃", "支払手数料", "雑費", "家庭費", "不明"
-];
-
-// 業務金額を計算
-function businessAmount(item: ReceiptItem): number {
-  const amount = typeof item.amount === "number" && !isNaN(item.amount) ? item.amount : 0;
-  if (item.classification === "business") return amount;
-  if (item.classification === "personal") return 0;
-  return Math.round(amount * item.split_ratio / 100);
 }
 
 // CSV生成
@@ -383,6 +341,8 @@ export default function ExpenseScanner() {
   const [startMonth, setStartMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [endMonth, setEndMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [csvLoading, setCsvLoading] = useState(false);
+  const [keihichoLoading, setKeihichoLoading] = useState(false);
+  const [keihichoVariant, setKeihichoVariant] = useState<"standard" | "invoice">("standard");
   const fileRef = useRef<HTMLInputElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const monthOptions = getMonthOptions();
@@ -602,33 +562,40 @@ export default function ExpenseScanner() {
     }
   };
 
+  // 指定期間(startMonth〜endMonth)のレシートをDriveから取得（日付で絞り込み・日付昇順）
+  const fetchReceiptsForPeriod = async (): Promise<Receipt[]> => {
+    const months: string[] = [];
+    const [sy, sm] = startMonth.split("-").map(Number);
+    const [ey, em] = endMonth.split("-").map(Number);
+    let y = sy, m = sm;
+    while (y < ey || (y === ey && m <= em)) {
+      months.push(`${y}-${String(m).padStart(2, "0")}`);
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    const allReceipts: Receipt[] = [];
+    for (const month of months) {
+      const data = await fetch(`/api/drive?month=${month}`).then(r => r.json());
+      if (data.receipts) allReceipts.push(...data.receipts);
+    }
+    // レシートの日付で絞り込み（Driveファイルとレシート日付が異なる場合を考慮）
+    return allReceipts
+      .filter(r => {
+        const m = r.date?.slice(0, 7);
+        return m && m >= startMonth && m <= endMonth;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  };
+
   const downloadPeriodCSV = async () => {
     setCsvLoading(true);
     try {
-      const months: string[] = [];
-      const [sy, sm] = startMonth.split("-").map(Number);
-      const [ey, em] = endMonth.split("-").map(Number);
-      let y = sy, m = sm;
-      while (y < ey || (y === ey && m <= em)) {
-        months.push(`${y}-${String(m).padStart(2, "0")}`);
-        m++;
-        if (m > 12) { m = 1; y++; }
-      }
-      const allReceipts: Receipt[] = [];
-      for (const month of months) {
-        const data = await fetch(`/api/drive?month=${month}`).then(r => r.json());
-        if (data.receipts) allReceipts.push(...data.receipts);
-      }
-      // レシートの日付で絞り込み（Driveファイルとレシート日付が異なる場合を考慮）
-      const filtered = allReceipts.filter(r => {
-        const m = r.date?.slice(0, 7);
-        return m && m >= startMonth && m <= endMonth;
-      });
+      const filtered = await fetchReceiptsForPeriod();
       if (filtered.length === 0) {
         alert("指定した期間にレシートデータがありません");
         return;
       }
-      const csv = generateCSV(filtered.sort((a, b) => a.date.localeCompare(b.date)));
+      const csv = generateCSV(filtered);
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -640,6 +607,38 @@ export default function ExpenseScanner() {
       alert("CSVのダウンロードに失敗しました");
     } finally {
       setCsvLoading(false);
+    }
+  };
+
+  const downloadPeriodKeihicho = async () => {
+    setKeihichoLoading(true);
+    try {
+      const filtered = await fetchReceiptsForPeriod();
+      if (filtered.length === 0) {
+        alert("指定した期間にレシートデータがありません");
+        return;
+      }
+      const res = await fetch("/api/export-keihicho", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receipts: filtered, variant: keihichoVariant }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "経費帳の生成に失敗しました");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `経費帳_${startMonth}_${endMonth}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("経費帳のダウンロードに失敗しました");
+    } finally {
+      setKeihichoLoading(false);
     }
   };
 
@@ -744,6 +743,22 @@ export default function ExpenseScanner() {
               className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               {csvLoading ? "取得中..." : "📥 CSVダウンロード"}
+            </button>
+            <select
+              value={keihichoVariant}
+              onChange={e => setKeihichoVariant(e.target.value as "standard" | "invoice")}
+              className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1.5 cursor-pointer"
+              title="経費帳テンプレートの種類"
+            >
+              <option value="standard">経費帳(通常版)</option>
+              <option value="invoice">経費帳(インボイス仕様)</option>
+            </select>
+            <button
+              onClick={downloadPeriodKeihicho}
+              disabled={keihichoLoading}
+              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              {keihichoLoading ? "生成中..." : "📊 経費帳(Excel)"}
             </button>
           </div>
         </div>
