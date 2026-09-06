@@ -116,9 +116,9 @@ function ItemRow({ item, onChange }: {
 }) {
   const ba = businessAmount(item);
   return (
-    <div className={`grid grid-cols-12 gap-1 items-center px-3 py-2 text-xs border-b border-gray-800/50 ${item.confidence < 0.7 ? "bg-red-500/5" : ""}`}>
-      <div className="col-span-3 truncate text-gray-200">{item.name}</div>
-      <div className="col-span-2 text-right font-mono text-gray-300">{typeof item.amount === "number" && !isNaN(item.amount) ? `¥${item.amount.toLocaleString()}` : <span className="text-gray-600">—</span>}</div>
+    <div className={`grid grid-cols-12 gap-1 items-center px-3 py-2 text-xs border-b border-gray-200/50 ${item.confidence < 0.7 ? "bg-red-500/5" : ""}`}>
+      <div className="col-span-3 truncate text-gray-800">{item.name}</div>
+      <div className="col-span-2 text-right font-mono text-gray-700">{typeof item.amount === "number" && !isNaN(item.amount) ? `¥${item.amount.toLocaleString()}` : <span className="text-gray-400">—</span>}</div>
       <div className="col-span-3 flex gap-1">
         {(["business", "personal", "split"] as Classification[]).map(c => (
           <button
@@ -129,7 +129,7 @@ function ItemRow({ item, onChange }: {
                 ? c === "business" ? "bg-blue-600 text-white"
                   : c === "personal" ? "bg-gray-600 text-white"
                   : "bg-amber-600 text-white"
-                : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
             }`}
           >
             {c === "business" ? "仕事" : c === "personal" ? "家庭" : "按分"}
@@ -143,22 +143,22 @@ function ItemRow({ item, onChange }: {
             min={0} max={100} step={10}
             value={item.split_ratio}
             onChange={e => onChange({ ...item, split_ratio: Number(e.target.value) })}
-            className="w-full bg-gray-800 text-amber-400 text-center rounded px-1 py-0.5 text-[10px]"
+            className="w-full bg-gray-200 text-amber-600 text-center rounded px-1 py-0.5 text-[10px]"
           />
         ) : (
-          <span className="text-gray-600">—</span>
+          <span className="text-gray-400">—</span>
         )}
       </div>
       <div className="col-span-2">
         <select
           value={item.category}
           onChange={e => onChange({ ...item, category: e.target.value })}
-          className="w-full bg-gray-800 text-gray-300 rounded px-1 py-0.5 text-[10px] cursor-pointer"
+          className="w-full bg-gray-200 text-gray-700 rounded px-1 py-0.5 text-[10px] cursor-pointer"
         >
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>
-      <div className={`col-span-1 text-right font-mono font-bold ${ba > 0 ? "text-blue-400" : "text-gray-600"}`}>
+      <div className={`col-span-1 text-right font-mono font-bold ${ba > 0 ? "text-blue-600" : "text-gray-400"}`}>
         {ba > 0 ? `¥${ba.toLocaleString()}` : "—"}
       </div>
     </div>
@@ -185,13 +185,13 @@ function ReceiptCard({ receipt, onChange, onDelete }: {
   };
 
   return (
-    <div className="rounded-xl border border-gray-700 overflow-hidden bg-gray-900/50">
+    <div className="rounded-xl border border-gray-300 overflow-hidden bg-white">
       <div
-        className="flex items-center justify-between px-4 py-3 bg-gray-800/60 cursor-pointer"
+        className="flex items-center justify-between px-4 py-3 bg-gray-200/60 cursor-pointer"
         onClick={() => setCollapsed(!collapsed)}
       >
         <div className="flex items-center gap-3">
-          <span className="text-gray-200 font-bold text-sm">{receipt.store_name || "不明"}</span>
+          <span className="text-gray-800 font-bold text-sm">{receipt.store_name || "不明"}</span>
           <span className="text-gray-500 text-xs">{receipt.date}</span>
           <span className="text-gray-500 text-xs">{receipt.payment_method}</span>
         </div>
@@ -199,15 +199,15 @@ function ReceiptCard({ receipt, onChange, onDelete }: {
           <div className="text-right">
             <div className="text-xs text-gray-500">合計 / 業務分</div>
             <div className="text-sm font-mono">
-              <span className="text-gray-400">¥{receipt.total?.toLocaleString()}</span>
-              <span className="text-gray-600 mx-1">/</span>
-              <span className="text-blue-400 font-bold">¥{businessTotal.toLocaleString()}</span>
+              <span className="text-gray-600">¥{receipt.total?.toLocaleString()}</span>
+              <span className="text-gray-400 mx-1">/</span>
+              <span className="text-blue-600 font-bold">¥{businessTotal.toLocaleString()}</span>
             </div>
           </div>
           {onDelete && (
             <button
               onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="text-gray-600 hover:text-red-400 text-lg leading-none cursor-pointer transition-colors"
+              className="text-gray-400 hover:text-red-600 text-lg leading-none cursor-pointer transition-colors"
               title="このレシートを削除"
             >
               🗑
@@ -219,20 +219,20 @@ function ReceiptCard({ receipt, onChange, onDelete }: {
 
       {!collapsed && (
         <>
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/30 border-b border-gray-700">
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-200/30 border-b border-gray-300">
             <span className="text-xs text-gray-500">一括:</span>
             {(["business", "personal", "split"] as Classification[]).map(c => (
               <button
                 key={c}
                 onClick={() => setAll(c)}
-                className="text-[10px] px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 cursor-pointer"
+                className="text-[10px] px-2 py-1 rounded bg-gray-300 hover:bg-gray-400 text-gray-700 cursor-pointer"
               >
                 全て{c === "business" ? "仕事" : c === "personal" ? "家庭" : "按分"}
               </button>
             ))}
           </div>
 
-          <div className="grid grid-cols-12 gap-1 px-3 py-1 text-[10px] text-gray-600 bg-gray-800/30">
+          <div className="grid grid-cols-12 gap-1 px-3 py-1 text-[10px] text-gray-500 bg-gray-200/30">
             <div className="col-span-3">品名</div>
             <div className="col-span-2 text-right">金額</div>
             <div className="col-span-3 text-center">仕分け</div>
@@ -245,21 +245,21 @@ function ReceiptCard({ receipt, onChange, onDelete }: {
             <ItemRow key={i} item={item} onChange={u => updateItem(i, u)} />
           ))}
 
-          <div className="flex justify-between items-center px-3 py-2 bg-gray-800/30 text-xs">
+          <div className="flex justify-between items-center px-3 py-2 bg-gray-200/30 text-xs">
             <div className="flex gap-4 text-gray-500">
               <span>小計 ¥{receipt.subtotal?.toLocaleString()}</span>
               {receipt.tax_8 > 0 && <span>税8% ¥{receipt.tax_8.toLocaleString()}</span>}
               {receipt.tax_10 > 0 && <span>税10% ¥{receipt.tax_10.toLocaleString()}</span>}
             </div>
             <div className="font-bold">
-              業務計: <span className="text-blue-400 font-mono">¥{businessTotal.toLocaleString()}</span>
+              業務計: <span className="text-blue-600 font-mono">¥{businessTotal.toLocaleString()}</span>
             </div>
           </div>
 
           {receipt.warnings?.length > 0 && (
             <div className="px-3 py-2 bg-yellow-500/5 border-t border-yellow-500/20">
               {receipt.warnings.map((w, i) => (
-                <p key={i} className="text-yellow-400/80 text-xs">⚠ {w}</p>
+                <p key={i} className="text-yellow-600/80 text-xs">⚠ {w}</p>
               ))}
             </div>
           )}
@@ -278,32 +278,32 @@ function DuplicateModal({ duplicates, imageUrl, onOk, onCancel }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-gray-900 border border-gray-700 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-700">
-          <p className="text-white font-bold">重複レシートを検出</p>
-          <p className="text-gray-400 text-xs mt-1">以下のレシートは既に保存されています。内容を確認して追加するか判断してください。</p>
+      <div className="w-full max-w-lg bg-white border border-gray-300 rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-300">
+          <p className="text-gray-900 font-bold">重複レシートを検出</p>
+          <p className="text-gray-600 text-xs mt-1">以下のレシートは既に保存されています。内容を確認して追加するか判断してください。</p>
         </div>
         <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {duplicates.map((r, i) => (
             <div key={i} className="flex gap-3 items-start">
               {imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={imageUrl} alt="レシート" className="w-24 object-cover rounded border border-gray-700 flex-shrink-0" />
+                <img src={imageUrl} alt="レシート" className="w-24 object-cover rounded border border-gray-300 flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-gray-200 text-sm font-bold">{r.store_name || "不明"}</p>
-                <p className="text-gray-500 text-xs">{r.date}　合計 <span className="text-amber-400 font-mono">¥{r.total?.toLocaleString()}</span></p>
-                <div className="mt-2 border border-gray-700 rounded overflow-hidden">
-                  <div className="grid grid-cols-12 px-2 py-1 text-[10px] text-gray-600 bg-gray-800">
+                <p className="text-gray-800 text-sm font-bold">{r.store_name || "不明"}</p>
+                <p className="text-gray-500 text-xs">{r.date}　合計 <span className="text-amber-600 font-mono">¥{r.total?.toLocaleString()}</span></p>
+                <div className="mt-2 border border-gray-300 rounded overflow-hidden">
+                  <div className="grid grid-cols-12 px-2 py-1 text-[10px] text-gray-500 bg-gray-200">
                     <div className="col-span-7">品名</div>
                     <div className="col-span-2 text-right">数量</div>
                     <div className="col-span-3 text-right">金額</div>
                   </div>
                   {r.items.map((item, j) => (
-                    <div key={j} className="grid grid-cols-12 px-2 py-1 text-[10px] border-t border-gray-800">
-                      <div className="col-span-7 text-gray-300 truncate">{item.name}</div>
+                    <div key={j} className="grid grid-cols-12 px-2 py-1 text-[10px] border-t border-gray-200">
+                      <div className="col-span-7 text-gray-700 truncate">{item.name}</div>
                       <div className="col-span-2 text-right text-gray-500">{item.quantity}</div>
-                      <div className="col-span-3 text-right text-gray-300 font-mono">¥{item.amount.toLocaleString()}</div>
+                      <div className="col-span-3 text-right text-gray-700 font-mono">¥{item.amount.toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
@@ -311,8 +311,8 @@ function DuplicateModal({ duplicates, imageUrl, onOk, onCancel }: {
             </div>
           ))}
         </div>
-        <div className="flex gap-2 px-5 py-4 border-t border-gray-700">
-          <button onClick={onCancel} className="flex-1 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm cursor-pointer">
+        <div className="flex gap-2 px-5 py-4 border-t border-gray-300">
+          <button onClick={onCancel} className="flex-1 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm cursor-pointer">
             キャンセル
           </button>
           <button onClick={onOk} className="flex-1 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm cursor-pointer">
@@ -633,7 +633,7 @@ export default function ExpenseScanner() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="animate-spin text-5xl mb-4">⚙️</div>
-        <p className="text-gray-400">読み込み中...</p>
+        <p className="text-gray-600">読み込み中...</p>
       </div>
     );
   }
@@ -647,13 +647,13 @@ export default function ExpenseScanner() {
           <h1 className="text-3xl font-bold mb-2">
             経費<span className="text-amber-500">仕分けツール</span>
           </h1>
-          <p className="text-gray-400 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
+          <p className="text-gray-600 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
         </div>
         <div className="flex flex-col items-center gap-4">
           <p className="text-gray-500 text-sm">ご利用にはGoogleアカウントでのログインが必要です</p>
           <button
             onClick={() => signIn("google")}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-gray-800 font-medium text-sm hover:bg-gray-100 transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-white text-gray-800 font-medium text-sm border border-gray-300 hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <svg width="18" height="18" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -666,7 +666,7 @@ export default function ExpenseScanner() {
           {process.env.NODE_ENV !== "production" && (
             <button
               onClick={() => signIn("test-login")}
-              className="text-xs text-gray-500 hover:text-amber-400 underline cursor-pointer"
+              className="text-xs text-gray-500 hover:text-amber-600 underline cursor-pointer"
             >
               テストログイン（開発環境のみ）
             </button>
@@ -674,7 +674,7 @@ export default function ExpenseScanner() {
           {process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === "true" && (
             <button
               onClick={() => signIn("demo-login")}
-              className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-400 text-sm hover:bg-amber-500/10 cursor-pointer"
+              className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-600 text-sm hover:bg-amber-500/10 cursor-pointer"
             >
               🎬 デモを見る
             </button>
@@ -707,18 +707,18 @@ export default function ExpenseScanner() {
           <h1 className="text-3xl font-bold mb-2">
             経費<span className="text-amber-500">仕分けツール</span>
           </h1>
-          <p className="text-gray-400 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
+          <p className="text-gray-600 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
         </div>
 
         {/* ユーザー情報 + 期間CSVダウンロード */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 px-4 py-3 rounded-xl bg-gray-900 border border-gray-700">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 px-4 py-3 rounded-xl bg-gray-100 border border-gray-300">
           {/* ユーザー */}
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400">{session.user?.email}</span>
-            {saveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
-            {saveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
-            {saveStatus === "error" && <span className="text-xs text-red-400">⚠ 保存失敗</span>}
-            <button onClick={() => signOut()} className="text-xs text-gray-500 hover:text-gray-300 cursor-pointer">
+            <span className="text-xs text-gray-600">{session.user?.email}</span>
+            {saveStatus === "saving" && <span className="text-xs text-amber-600 animate-pulse">⏳ 保存中...</span>}
+            {saveStatus === "saved" && <span className="text-xs text-green-600">✓ 保存済み</span>}
+            {saveStatus === "error" && <span className="text-xs text-red-600">⚠ 保存失敗</span>}
+            <button onClick={() => signOut()} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
               ログアウト
             </button>
           </div>
@@ -727,7 +727,7 @@ export default function ExpenseScanner() {
             <select
               value={startMonth}
               onChange={e => setStartMonth(e.target.value)}
-              className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1.5 cursor-pointer"
+              className="bg-gray-200 text-gray-700 text-xs rounded px-2 py-1.5 cursor-pointer"
             >
               {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
@@ -735,21 +735,21 @@ export default function ExpenseScanner() {
             <select
               value={endMonth}
               onChange={e => setEndMonth(e.target.value)}
-              className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1.5 cursor-pointer"
+              className="bg-gray-200 text-gray-700 text-xs rounded px-2 py-1.5 cursor-pointer"
             >
               {monthOptions.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
             <button
               onClick={downloadPeriodCSV}
               disabled={csvLoading}
-              className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/30 text-blue-600 text-xs hover:bg-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               {csvLoading ? "取得中..." : "📥 CSVダウンロード"}
             </button>
             <select
               value={keihichoVariant}
               onChange={e => setKeihichoVariant(e.target.value as "standard" | "invoice")}
-              className="bg-gray-800 text-gray-300 text-xs rounded px-2 py-1.5 cursor-pointer"
+              className="bg-gray-200 text-gray-700 text-xs rounded px-2 py-1.5 cursor-pointer"
               title="経費帳テンプレートの種類"
             >
               <option value="standard">経費帳(通常版)</option>
@@ -758,7 +758,7 @@ export default function ExpenseScanner() {
             <button
               onClick={downloadPeriodKeihicho}
               disabled={keihichoLoading}
-              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
               {keihichoLoading ? "生成中..." : "📊 経費帳(Excel)"}
             </button>
@@ -769,7 +769,7 @@ export default function ExpenseScanner() {
         <div className="flex justify-center mb-6">
           <a
             href="https://github.com/keita2399/receipt-scanner/releases/download/v1.0.0/receipt-scanner-installer.zip"
-            className="text-xs text-gray-500 hover:text-amber-400 underline cursor-pointer transition-colors"
+            className="text-xs text-gray-500 hover:text-amber-600 underline cursor-pointer transition-colors"
           >
             ⬇ スキャナー連携ツールをダウンロード
           </a>
@@ -785,8 +785,8 @@ export default function ExpenseScanner() {
               onClick={scannerLoading ? undefined : () => fileRef.current?.click()}
               className={`border-2 border-dashed rounded-xl p-10 text-center transition-all ${
                 scannerLoading
-                  ? "border-gray-800 opacity-40 cursor-not-allowed"
-                  : dragOver ? "border-amber-500 bg-amber-500/10 cursor-pointer" : "border-gray-700 hover:border-gray-500 hover:bg-gray-900/50 cursor-pointer"
+                  ? "border-gray-200 opacity-40 cursor-not-allowed"
+                  : dragOver ? "border-amber-500 bg-amber-500/10 cursor-pointer" : "border-gray-300 hover:border-gray-500 hover:bg-gray-100/50 cursor-pointer"
               }`}
             >
               <input
@@ -798,14 +798,14 @@ export default function ExpenseScanner() {
                 onChange={e => { const f = e.target.files?.[0]; if (f) processFile(f); }}
               />
               <div className="text-4xl mb-4">🗂️</div>
-              <p className="text-gray-300 font-medium mb-1">レシートをドロップ or クリックして選択</p>
+              <p className="text-gray-700 font-medium mb-1">レシートをドロップ or クリックして選択</p>
               <p className="text-gray-500 text-xs">PNG / JPEG / PDF（複数レシートOK・複数ページPDFもOK）最大15MB</p>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 onClick={() => setCameraOpen(true)}
                 disabled={scannerLoading}
-                className="py-3 rounded-xl border border-gray-700 hover:border-amber-500/50 hover:bg-amber-500/5 text-gray-400 hover:text-amber-400 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="py-3 rounded-xl border border-gray-300 hover:border-amber-500/50 hover:bg-amber-500/5 text-gray-600 hover:text-amber-600 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 📷 カメラで撮影
               </button>
@@ -815,18 +815,18 @@ export default function ExpenseScanner() {
                 title={!extensionInstalled ? "Chrome拡張機能をインストールしてください" : ""}
                 className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
                   !extensionInstalled
-                    ? "border-gray-800 text-gray-600 cursor-not-allowed"
-                    : "border-gray-700 hover:border-blue-500/50 hover:bg-blue-500/5 text-gray-400 hover:text-blue-400 cursor-pointer"
+                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
+                    : "border-gray-300 hover:border-blue-500/50 hover:bg-blue-500/5 text-gray-600 hover:text-blue-600 cursor-pointer"
                 }`}
               >
                 🖨️ {!extensionInstalled ? "拡張機能が必要です" : "スキャナで読み込む"}
               </button>
             </div>
             {scannerStatus && (
-              <p className="mt-2 text-xs text-blue-400 text-center animate-pulse">{scannerStatus}</p>
+              <p className="mt-2 text-xs text-blue-600 text-center animate-pulse">{scannerStatus}</p>
             )}
             {scannerError && (
-              <p className="mt-2 text-xs text-red-400 text-center">{scannerError}</p>
+              <p className="mt-2 text-xs text-red-600 text-center">{scannerError}</p>
             )}
           </>
         )}
@@ -835,10 +835,10 @@ export default function ExpenseScanner() {
         {(loading || scannerLoading) && (
           <div className="text-center py-20">
             <div className="animate-spin text-5xl mb-4">⚙️</div>
-            <p className="text-gray-400">
+            <p className="text-gray-600">
               {scannerLoading ? (scannerStatus || "スキャン中...") : "AIがレシートを読み取り中..."}
             </p>
-            <p className="text-gray-600 text-xs mt-2">
+            <p className="text-gray-400 text-xs mt-2">
               {scannerLoading ? "原稿をセットしてお待ちください" : "複数枚の場合は少し時間がかかります"}
             </p>
           </div>
@@ -847,7 +847,7 @@ export default function ExpenseScanner() {
         {/* エラー */}
         {error && (
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-4">
-            <p className="text-red-400 text-sm">{error}</p>
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
@@ -855,10 +855,10 @@ export default function ExpenseScanner() {
         {receipts.length > 0 && (
           <>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-gray-400 text-sm">{receipts.length}件のレシートを検出</span>
+              <span className="text-gray-600 text-sm">{receipts.length}件のレシートを検出</span>
               <div className="flex items-center gap-3">
-                {saveStatus === "saving" && <span className="text-xs text-amber-400 animate-pulse">⏳ 保存中...</span>}
-                {saveStatus === "saved" && <span className="text-xs text-green-400">✓ 保存済み</span>}
+                {saveStatus === "saving" && <span className="text-xs text-amber-600 animate-pulse">⏳ 保存中...</span>}
+                {saveStatus === "saved" && <span className="text-xs text-green-600">✓ 保存済み</span>}
                 <button
                   onClick={() => { setReceipts([]); setError(null); }}
                   className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors cursor-pointer"
@@ -875,9 +875,9 @@ export default function ExpenseScanner() {
             </div>
 
             {/* 合計サマリー */}
-            <div className="mt-4 p-4 rounded-xl bg-gray-900 border border-gray-700">
+            <div className="mt-4 p-4 rounded-xl bg-gray-100 border border-gray-300">
               <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-sm">今回の業務経費合計</span>
+                <span className="text-gray-600 text-sm">今回の業務経費合計</span>
                 <span className="text-2xl font-bold text-amber-500 font-mono">
                   ¥{receipts.reduce((s, r) => s + r.items.reduce((si, i) => si + businessAmount(i), 0), 0).toLocaleString()}
                 </span>

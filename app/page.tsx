@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-950 text-white">
+    <main className="min-h-screen bg-gray-50 text-gray-900">
       <ExpenseScanner />
     </main>
   );

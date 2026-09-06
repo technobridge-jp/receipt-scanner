@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="bg-gray-950 text-gray-100 min-h-screen font-sans">
+      <body className="bg-gray-50 text-gray-900 min-h-screen font-sans">
         <GoogleAnalytics />
         <SessionProvider>{children}</SessionProvider>
       </body>
