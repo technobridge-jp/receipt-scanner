@@ -765,16 +765,6 @@ export default function ExpenseScanner() {
           </div>
         </div>
 
-        {/* スキャナー連携ツール */}
-        <div className="flex justify-center mb-6">
-          <a
-            href="https://github.com/keita2399/receipt-scanner/releases/download/v1.0.0/receipt-scanner-installer.zip"
-            className="text-xs text-gray-500 hover:text-amber-600 underline cursor-pointer transition-colors"
-          >
-            ⬇ スキャナー連携ツールをダウンロード
-          </a>
-        </div>
-
         {/* アップロードエリア */}
         {receipts.length === 0 && !loading && (
           <>
@@ -801,25 +791,13 @@ export default function ExpenseScanner() {
               <p className="text-gray-700 font-medium mb-1">レシートをドロップ or クリックして選択</p>
               <p className="text-gray-500 text-xs">PNG / JPEG / PDF（複数レシートOK・複数ページPDFもOK）最大15MB</p>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3">
               <button
                 onClick={() => setCameraOpen(true)}
                 disabled={scannerLoading}
-                className="py-3 rounded-xl border border-gray-300 hover:border-amber-500/50 hover:bg-amber-500/5 text-gray-600 hover:text-amber-600 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 rounded-xl border border-gray-300 hover:border-amber-500/50 hover:bg-amber-500/5 text-gray-600 hover:text-amber-600 text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 📷 カメラで撮影
-              </button>
-              <button
-                onClick={scanFromScanner}
-                disabled={scannerLoading}
-                title={!extensionInstalled ? "Chrome拡張機能をインストールしてください" : ""}
-                className={`py-3 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${
-                  !extensionInstalled
-                    ? "border-gray-200 text-gray-400 cursor-not-allowed"
-                    : "border-gray-300 hover:border-blue-500/50 hover:bg-blue-500/5 text-gray-600 hover:text-blue-600 cursor-pointer"
-                }`}
-              >
-                🖨️ {!extensionInstalled ? "拡張機能が必要です" : "スキャナで読み込む"}
               </button>
             </div>
             {scannerStatus && (
