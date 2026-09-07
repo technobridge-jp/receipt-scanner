@@ -743,11 +743,11 @@ export default function ExpenseScanner() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="text-center mb-10">
-          <div className="text-xs text-amber-500 tracking-widest mb-2 font-mono">EXPENSE SCANNER</div>
+          <div className="text-xs text-amber-500 tracking-widest mb-2 font-mono">AXIS</div>
           <h1 className="text-3xl font-bold mb-2">
-            経費<span className="text-amber-500">仕分けツール</span>
+            かんたん<span className="text-amber-500">経費精算</span>
           </h1>
-          <p className="text-gray-600 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
+          <p className="text-gray-600 text-sm">領収書を入れるだけ。AIが整理・入力・証憑管理までサポート</p>
         </div>
         <div className="flex flex-col items-center gap-4">
           <p className="text-gray-500 text-sm">ご利用にはGoogleアカウントでのログインが必要です</p>
@@ -803,11 +803,11 @@ export default function ExpenseScanner() {
       <div className="max-w-4xl mx-auto px-4 py-10">
         {/* ヘッダー */}
         <div className="text-center mb-6">
-          <div className="text-xs text-amber-500 tracking-widest mb-2 font-mono">EXPENSE SCANNER</div>
+          <div className="text-xs text-amber-500 tracking-widest mb-2 font-mono">AXIS</div>
           <h1 className="text-3xl font-bold mb-2">
-            経費<span className="text-amber-500">仕分けツール</span>
+            かんたん<span className="text-amber-500">経費精算</span>
           </h1>
-          <p className="text-gray-600 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
+          <p className="text-gray-600 text-sm">領収書を入れるだけ。AIが整理・入力・証憑管理までサポート</p>
         </div>
 
         {/* ビュー切り替え */}

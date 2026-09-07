@@ -4,8 +4,8 @@ import { GoogleAnalytics } from "./components/GoogleAnalytics";
 import SessionProvider from "./components/SessionProvider";
 
 export const metadata: Metadata = {
-  title: "経費仕分けツール — AI OCR",
-  description: "レシートをスキャンして仕事/家庭を仕分け。確定申告用CSV出力。",
+  title: "AXIS かんたん経費精算",
+  description: "領収書を入れるだけ。AIが整理・入力・証憑管理までサポート。",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
