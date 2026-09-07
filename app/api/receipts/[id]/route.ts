@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthContext, isAuthContext } from "@/lib/authContext";
 import { withTenant } from "@/lib/tenantDb";
-import { toItemCreateInput } from "@/lib/receiptDb";
+import { toItemCreateInput, toDbStatus } from "@/lib/receiptDb";
 import { Receipt } from "@/lib/types";
 import { deleteReceiptImage } from "@/lib/storage";
 
@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           paymentMethod: receipt.payment_method,
           confidence: receipt.confidence,
           warnings: receipt.warnings ?? [],
+          ...(receipt.status ? { status: toDbStatus(receipt.status) } : {}),
           items: { create: receipt.items.map((item) => toItemCreateInput(item, auth.tenantId)) },
         },
       });

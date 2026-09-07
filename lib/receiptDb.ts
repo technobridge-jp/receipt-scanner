@@ -1,12 +1,14 @@
 import "server-only";
-import type { Prisma, Classification as DbClassification } from "@prisma/client";
-import { Classification, Receipt, ReceiptItem } from "./types";
+import type { Prisma, Classification as DbClassification, ReceiptStatus as DbReceiptStatus } from "@prisma/client";
+import { Classification, Receipt, ReceiptItem, ReceiptStatus } from "./types";
 
 // DB(Prisma、camelCase・enum大文字)⇔ アプリ(snake_case、AIのOCR出力形式)の変換層。
 // フロントエンド(app/components/ExpenseScanner.tsx)の型・表示ロジックは変更せずに
 // 保存先だけGoogle DriveからこのDBへ差し替えられるようにするための橋渡し。
 
-type PrismaReceiptWithItems = Prisma.ReceiptGetPayload<{ include: { items: true } }>;
+type PrismaReceiptWithItems = Prisma.ReceiptGetPayload<{ include: { items: true } }> & {
+  user?: { name: string | null; email: string } | null;
+};
 type PrismaReceiptItem = PrismaReceiptWithItems["items"][number];
 
 export function toApiReceipt(r: PrismaReceiptWithItems): Receipt {
@@ -23,7 +25,17 @@ export function toApiReceipt(r: PrismaReceiptWithItems): Receipt {
     confidence: r.confidence ?? 0,
     warnings: Array.isArray(r.warnings) ? (r.warnings as string[]) : [],
     has_image: Boolean(r.imagePath),
+    status: toApiStatus(r.status),
+    ...(r.user ? { user_name: r.user.name ?? r.user.email } : {}),
   };
+}
+
+function toApiStatus(s: DbReceiptStatus): ReceiptStatus {
+  return s.toLowerCase() as ReceiptStatus;
+}
+
+export function toDbStatus(s: ReceiptStatus): DbReceiptStatus {
+  return s.toUpperCase() as DbReceiptStatus;
 }
 
 function toApiItem(i: PrismaReceiptItem): ReceiptItem {
@@ -75,6 +87,7 @@ export function toReceiptCreateInput(receipt: Receipt, tenantId: string, userId:
     confidence: receipt.confidence,
     warnings: receipt.warnings ?? [],
     imagePath: imagePath ?? null,
+    status: toDbStatus(receipt.status ?? "unconfirmed"),
     items: { create: receipt.items.map((item) => toItemCreateInput(item, tenantId)) },
   };
 }

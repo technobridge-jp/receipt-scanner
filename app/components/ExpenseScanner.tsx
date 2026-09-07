@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { CATEGORIES, Classification, Receipt, ReceiptItem, businessAmount } from "@/lib/types";
+import { CATEGORIES, Classification, Receipt, ReceiptItem, ReceiptStatus, STATUS_LABELS, businessAmount } from "@/lib/types";
 
 // --- カメラキャプチャモーダル ---
 function CameraModal({ onCapture, onClose }: {
@@ -194,8 +194,34 @@ function ReceiptCard({ receipt, onChange, onDelete }: {
           <span className="text-gray-800 font-bold text-sm">{receipt.store_name || "不明"}</span>
           <span className="text-gray-500 text-xs">{receipt.date}</span>
           <span className="text-gray-500 text-xs">{receipt.payment_method}</span>
+          {receipt.user_name && <span className="text-gray-400 text-xs">担当: {receipt.user_name}</span>}
         </div>
         <div className="flex items-center gap-3">
+          <select
+            value={receipt.status ?? "unconfirmed"}
+            onClick={e => e.stopPropagation()}
+            onChange={e => onChange({ ...receipt, status: e.target.value as ReceiptStatus })}
+            className={`text-[10px] font-bold rounded px-2 py-1 cursor-pointer border ${
+              receipt.status === "confirmed" ? "bg-green-100 text-green-700 border-green-300"
+                : receipt.status === "needs_review" ? "bg-red-100 text-red-700 border-red-300"
+                : "bg-gray-200 text-gray-600 border-gray-300"
+            }`}
+          >
+            {(Object.keys(STATUS_LABELS) as ReceiptStatus[]).map(s => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+          {receipt.has_image && (
+            <a
+              href={`/api/receipts/${receipt.id}/image`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              📎 証憑
+            </a>
+          )}
           <div className="text-right">
             <div className="text-xs text-gray-500">合計 / 業務分</div>
             <div className="text-sm font-mono">
@@ -343,6 +369,22 @@ export default function ExpenseScanner() {
   const [csvLoading, setCsvLoading] = useState(false);
   const [keihichoLoading, setKeihichoLoading] = useState(false);
   const [keihichoVariant, setKeihichoVariant] = useState<"standard" | "invoice">("standard");
+
+  // 検索ビュー（過去のレシートを横断検索）
+  const [view, setView] = useState<"scan" | "search">("scan");
+  const [searchResults, setSearchResults] = useState<Receipt[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchTruncated, setSearchTruncated] = useState(false);
+  const [staffList, setStaffList] = useState<{ id: string; name: string }[]>([]);
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [filterStore, setFilterStore] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterUserId, setFilterUserId] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterMinAmount, setFilterMinAmount] = useState("");
+  const [filterMaxAmount, setFilterMaxAmount] = useState("");
+
   const fileRef = useRef<HTMLInputElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const monthOptions = getMonthOptions();
@@ -431,6 +473,7 @@ export default function ExpenseScanner() {
         const newReceipts: Receipt[] = (data.receipts || [data]).map((r: Omit<Receipt, "id" | "items"> & { items: Omit<ReceiptItem, "classification" | "split_ratio">[] }) => ({
           ...r,
           id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          status: "unconfirmed" as ReceiptStatus,
           items: (r.items || []).map((item) => ({
             ...item,
             classification: "business" as Classification,
@@ -495,6 +538,7 @@ export default function ExpenseScanner() {
       const newReceipts: Receipt[] = result.receipts.map((r) => ({
         ...r,
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        status: "unconfirmed" as ReceiptStatus,
         items: (r.items || []).map((item) => ({
           ...item,
           classification: "business" as Classification,
@@ -633,6 +677,57 @@ export default function ExpenseScanner() {
     }
   };
 
+  // 検索ビューに入ったら担当者一覧を1回だけ読み込む
+  useEffect(() => {
+    if (view !== "search" || !session) return;
+    fetch("/api/receipts/staff").then(r => r.json()).then(d => setStaffList(d.staff || [])).catch(() => {});
+  }, [view, session]);
+
+  const runSearch = async () => {
+    setSearchLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterFrom) params.set("from", filterFrom);
+      if (filterTo) params.set("to", filterTo);
+      if (filterStore) params.set("store", filterStore);
+      if (filterCategory) params.set("category", filterCategory);
+      if (filterUserId) params.set("userId", filterUserId);
+      if (filterStatus) params.set("status", filterStatus);
+      if (filterMinAmount) params.set("minAmount", filterMinAmount);
+      if (filterMaxAmount) params.set("maxAmount", filterMaxAmount);
+      const data = await fetch(`/api/receipts/search?${params.toString()}`).then(r => r.json());
+      setSearchResults(data.receipts || []);
+      setSearchTruncated(Boolean(data.truncated));
+    } catch {
+      alert("検索に失敗しました");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // 検索結果カードの更新（即時保存。スキャン直後の一覧とは別に自前でPUTを叩く）
+  const updateSearchResult = async (idx: number, updated: Receipt) => {
+    setSearchResults(prev => prev ? prev.map((r, i) => i === idx ? updated : r) : prev);
+    try {
+      await fetch(`/api/receipts/${updated.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+    } catch {
+      // 失敗時も画面上は更新済み。次回検索し直せば実際の状態が見える
+    }
+  };
+
+  const deleteSearchResult = async (receipt: Receipt) => {
+    setSearchResults(prev => prev ? prev.filter(r => r.id !== receipt.id) : prev);
+    try {
+      await fetch(`/api/receipts/${receipt.id}`, { method: "DELETE" });
+    } catch {
+      // 失敗しても表示からは除去済み
+    }
+  };
+
   // セッション読み込み中
   if (status === "loading") {
     return (
@@ -715,6 +810,22 @@ export default function ExpenseScanner() {
           <p className="text-gray-600 text-sm">レシートをスキャン → 仕事/家庭を仕分け → 確定申告用CSV出力</p>
         </div>
 
+        {/* ビュー切り替え */}
+        <div className="flex justify-center gap-2 mb-4">
+          <button
+            onClick={() => setView("scan")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${view === "scan" ? "bg-amber-500 text-black" : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}
+          >
+            📷 スキャン
+          </button>
+          <button
+            onClick={() => setView("search")}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${view === "search" ? "bg-amber-500 text-black" : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`}
+          >
+            🔍 レシートを検索
+          </button>
+        </div>
+
         {/* ユーザー情報 + 期間CSVダウンロード */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 px-4 py-3 rounded-xl bg-gray-100 border border-gray-300">
           {/* ユーザー */}
@@ -770,6 +881,8 @@ export default function ExpenseScanner() {
           </div>
         </div>
 
+        {view === "scan" && (
+        <>
         {/* アップロードエリア */}
         {receipts.length === 0 && !loading && (
           <>
@@ -867,6 +980,94 @@ export default function ExpenseScanner() {
               </div>
             </div>
           </>
+        )}
+        </>
+        )}
+
+        {view === "search" && (
+          <div>
+            {/* 検索フィルタ */}
+            <div className="p-4 rounded-xl bg-gray-100 border border-gray-300 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">日付(from)</label>
+                  <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+                    className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">日付(to)</label>
+                  <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+                    className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">金額(下限)</label>
+                  <input type="number" value={filterMinAmount} onChange={e => setFilterMinAmount(e.target.value)}
+                    placeholder="円" className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">金額(上限)</label>
+                  <input type="number" value={filterMaxAmount} onChange={e => setFilterMaxAmount(e.target.value)}
+                    placeholder="円" className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">支払先</label>
+                  <input type="text" value={filterStore} onChange={e => setFilterStore(e.target.value)}
+                    placeholder="店舗名の一部" className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300" />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">勘定科目</label>
+                  <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+                    className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300 cursor-pointer">
+                    <option value="">すべて</option>
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">社員</label>
+                  <select value={filterUserId} onChange={e => setFilterUserId(e.target.value)}
+                    className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300 cursor-pointer">
+                    <option value="">すべて</option>
+                    {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-0.5">ステータス</label>
+                  <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                    className="w-full bg-white text-gray-700 text-xs rounded px-2 py-1.5 border border-gray-300 cursor-pointer">
+                    <option value="">すべて</option>
+                    {(Object.keys(STATUS_LABELS) as ReceiptStatus[]).map(s => (
+                      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button
+                onClick={runSearch}
+                disabled={searchLoading}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {searchLoading ? "検索中..." : "🔍 検索する"}
+              </button>
+            </div>
+
+            {/* 検索結果 */}
+            {searchResults !== null && (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-gray-600 text-sm">{searchResults.length}件ヒット{searchTruncated && "（上限300件のため一部のみ表示）"}</span>
+                </div>
+                {searchResults.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-10">該当するレシートがありません</p>
+                ) : (
+                  <div className="space-y-3">
+                    {searchResults.map((r, i) => (
+                      <ReceiptCard key={r.id} receipt={r} onChange={u => updateSearchResult(i, u)} onDelete={() => deleteSearchResult(r)} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </>

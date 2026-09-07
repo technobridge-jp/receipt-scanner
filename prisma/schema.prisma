@@ -28,6 +28,12 @@ enum Classification {
   SPLIT // 按分
 }
 
+enum ReceiptStatus {
+  UNCONFIRMED  // 未確認（スキャン直後の初期値）
+  NEEDS_REVIEW // 要確認
+  CONFIRMED    // 確認済
+}
+
 model Tenant {
   id           String        @id @default(cuid())
   name         String
@@ -76,16 +82,18 @@ model Receipt {
   paymentMethod String?
   confidence    Float?
   warnings      Json? // string[]
-  // Supabase Storage(receipt-imagesバケット)上のオブジェクトパス。
-  // 例: {tenantId}/{YYYY-MM}/{担当者}/{証憑種別}/{日付}_{店舗名}_{金額}円_{勘定科目}.jpg
-  // 1枚の画像から複数レシートを検出した場合は同じパスを共有する。
+  // Supabase Storage(receipt-imagesバケット)上のオブジェクトキー(ASCIIのみ)。
+  // 例: {tenantId}/{YYYY-MM}/{receiptId}.{ext}
+  // 人間可読な日付_店舗名_金額_勘定科目のファイル名はダウンロード時に動的に付与する(lib/storage.ts)。
   imagePath     String?
+  status        ReceiptStatus @default(UNCONFIRMED)
   items         ReceiptItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   @@index([tenantId])
   @@index([tenantId, date])
+  @@index([tenantId, status])
 }
 
 model ReceiptItem {
