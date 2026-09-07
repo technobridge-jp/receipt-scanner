@@ -3,6 +3,7 @@ import { requireAuthContext, isAuthContext } from "@/lib/authContext";
 import { withTenant } from "@/lib/tenantDb";
 import { toItemCreateInput } from "@/lib/receiptDb";
 import { Receipt } from "@/lib/types";
+import { deleteReceiptImage } from "@/lib/storage";
 
 // PUT: 1件のレシートを更新（品目は全入れ替え。分類・按分率の編集などで使う）
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,7 +46,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const { id } = await params;
 
   try {
-    await withTenant(auth.tenantId, (tx) => tx.receipt.delete({ where: { id } }));
+    const deleted = await withTenant(auth.tenantId, (tx) =>
+      tx.receipt.delete({ where: { id }, select: { imagePath: true } }),
+    );
+    if (deleted.imagePath) await deleteReceiptImage(deleted.imagePath);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("receipts DELETE error:", error);

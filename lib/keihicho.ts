@@ -45,13 +45,15 @@ interface LedgerEntry {
   amount: number;
   counterAccount: string;
   taxRate: number;
+  imageUrl?: string; // 証憑画像へのリンク(自ドメインの /api/receipts/{id}/image)
 }
 
 // 品目を勘定科目ごとにグルーピングし、日付昇順に並べる
-function groupByCategory(receipts: Receipt[]): Map<string, LedgerEntry[]> {
+function groupByCategory(receipts: Receipt[], baseUrl: string): Map<string, LedgerEntry[]> {
   const grouped = new Map<string, LedgerEntry[]>();
   for (const receipt of receipts) {
     const counterAccount = COUNTER_ACCOUNT_BY_PAYMENT_METHOD[receipt.payment_method] ?? "";
+    const imageUrl = receipt.has_image ? `${baseUrl}/api/receipts/${receipt.id}/image` : undefined;
     for (const item of receipt.items) {
       const amount = businessAmount(item);
       if (amount === 0) continue; // 家庭費按分・按分0円は経費帳に載せない
@@ -63,6 +65,7 @@ function groupByCategory(receipts: Receipt[]): Map<string, LedgerEntry[]> {
         amount,
         counterAccount,
         taxRate: item.tax_rate,
+        imageUrl,
       });
       grouped.set(category, entries);
     }
@@ -124,8 +127,8 @@ function copyRowStyle(source: ExcelJS.Row, dest: ExcelJS.Row, copyValue: boolean
   dest.height = source.height;
 }
 
-export async function generateKeihichoWorkbook(receipts: Receipt[], variant: KeihichoVariant): Promise<Buffer> {
-  const grouped = groupByCategory(receipts);
+export async function generateKeihichoWorkbook(receipts: Receipt[], variant: KeihichoVariant, baseUrl: string): Promise<Buffer> {
+  const grouped = groupByCategory(receipts, baseUrl);
   if (grouped.size === 0) {
     throw new Error("出力対象の明細がありません（家庭費・按分0円のみ、または期間内にデータがありません）");
   }
@@ -139,20 +142,27 @@ export async function generateKeihichoWorkbook(receipts: Receipt[], variant: Kei
   const totalRowStyleSource = sourceSheet.getRow(502);
 
   const cols = COLUMNS[variant];
+  const evidenceCol = cols.total + 1; // 証憑(画像)リンク列。テンプレート本来の列の右隣に追加する
   const outWb = new ExcelJS.Workbook();
   const usedSheetNames = new Set<string>();
 
   for (const [category, entries] of grouped) {
     const sheet = outWb.addWorksheet(sanitizeSheetName(category, usedSheetNames));
 
-    // 列幅コピー
-    sheet.columns = sourceSheet.columns.map(c => ({ width: (c as { width?: number }).width }));
+    // 列幅コピー(+証憑列を追加)
+    sheet.columns = [...sourceSheet.columns.map(c => ({ width: (c as { width?: number }).width })), { width: 12 }];
 
     // ヘッダー行(1〜5)をスタイルごとコピー
     for (let r = 1; r <= HEADER_ROWS; r++) {
       copyRowStyle(sourceSheet.getRow(r), sheet.getRow(r), true);
     }
     copyHeaderMerges(sourceSheet, sheet);
+
+    // 証憑列の見出し(テンプレートに無い追加列なので、隣の金額合計列のスタイルを流用)
+    const evidenceHeaderStyle = sourceSheet.getCell(HEADER_ROWS, cols.total).style;
+    const evidenceHeaderCell = sheet.getCell(HEADER_ROWS, evidenceCol);
+    evidenceHeaderCell.style = JSON.parse(JSON.stringify(evidenceHeaderStyle));
+    evidenceHeaderCell.value = "証憑";
 
     // 勘定科目名(D2)をセット
     sheet.getCell(2, 4).value = category;
@@ -173,6 +183,14 @@ export async function generateKeihichoWorkbook(receipts: Receipt[], variant: Kei
       // インボイス列: レシートから適格請求書番号の有無を判定できないため空欄（手動確認が必要）
       row.getCell(cols.amount).value = entry.amount;
       row.getCell(cols.total).value = { formula: `${columnLetter(cols.total)}${rowNum - 1}+${columnLetter(cols.amount)}${rowNum}` };
+
+      // 証憑列(テンプレートに無い追加列なので、隣の金額列のスタイルを流用してから値を入れる)
+      const evidenceCell = row.getCell(evidenceCol);
+      evidenceCell.style = JSON.parse(JSON.stringify(dataRowStyleSource.getCell(cols.total).style));
+      if (entry.imageUrl) {
+        evidenceCell.value = { text: "画像を開く", hyperlink: entry.imageUrl };
+        evidenceCell.font = { ...evidenceCell.font, color: { argb: "FF0563C1" }, underline: true };
+      }
       row.commit();
     });
 

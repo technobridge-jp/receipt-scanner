@@ -76,6 +76,10 @@ model Receipt {
   paymentMethod String?
   confidence    Float?
   warnings      Json? // string[]
+  // Supabase Storage(receipt-imagesバケット)上のオブジェクトパス。
+  // 例: {tenantId}/{YYYY-MM}/{担当者}/{証憑種別}/{日付}_{店舗名}_{金額}円_{勘定科目}.jpg
+  // 1枚の画像から複数レシートを検出した場合は同じパスを共有する。
+  imagePath     String?
   items         ReceiptItem[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

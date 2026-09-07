@@ -366,6 +366,7 @@ export default function ExpenseScanner() {
   }, []);
 
   // DB保存（重複チェック含む）。新規レシートのみ送るので、既存分の再送は不要。
+  // imageUrl(data:URL)を渡すと、元のレシート画像をSupabase Storageへ保存し証憑として紐付ける。
   const saveReceipts = useCallback(async (newReceipts: Receipt[], imageUrl: string | null = null): Promise<boolean> => {
     if (!session) return true;
     const byMonth: Record<string, Receipt[]> = {};
@@ -374,6 +375,10 @@ export default function ExpenseScanner() {
       if (!byMonth[m]) byMonth[m] = [];
       byMonth[m].push(r);
     }
+    // data:image/jpeg;base64,xxxx から mimeType と base64本体を取り出す
+    const imageMatch = imageUrl?.match(/^data:([^;]+);base64,(.+)$/);
+    const image = imageMatch ? { mimeType: imageMatch[1], data: imageMatch[2] } : undefined;
+
     setSaveStatus("saving");
     try {
       for (const [month, recs] of Object.entries(byMonth)) {
@@ -390,7 +395,7 @@ export default function ExpenseScanner() {
         await fetch("/api/receipts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ receipts: recsToSave }),
+          body: JSON.stringify({ receipts: recsToSave, image }),
         });
       }
       setSaveStatus("saved");

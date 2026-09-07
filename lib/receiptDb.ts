@@ -22,6 +22,7 @@ export function toApiReceipt(r: PrismaReceiptWithItems): Receipt {
     payment_method: r.paymentMethod ?? "",
     confidence: r.confidence ?? 0,
     warnings: Array.isArray(r.warnings) ? (r.warnings as string[]) : [],
+    has_image: Boolean(r.imagePath),
   };
 }
 
@@ -59,7 +60,7 @@ export function toItemCreateInput(item: ReceiptItem, tenantId: string) {
   };
 }
 
-export function toReceiptCreateInput(receipt: Receipt, tenantId: string, userId: string) {
+export function toReceiptCreateInput(receipt: Receipt, tenantId: string, userId: string, imagePath?: string | null) {
   return {
     id: receipt.id,
     tenantId,
@@ -73,6 +74,13 @@ export function toReceiptCreateInput(receipt: Receipt, tenantId: string, userId:
     paymentMethod: receipt.payment_method,
     confidence: receipt.confidence,
     warnings: receipt.warnings ?? [],
+    imagePath: imagePath ?? null,
     items: { create: receipt.items.map((item) => toItemCreateInput(item, tenantId)) },
   };
+}
+
+// レシートの品目から証憑ファイル名用の「主要勘定科目」を決める
+// (複数科目にまたがる場合は先頭の品目の科目を使う)。
+export function primaryCategory(receipt: Receipt): string {
+  return receipt.items[0]?.category || "不明";
 }

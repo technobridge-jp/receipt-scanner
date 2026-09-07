@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
     const v: KeihichoVariant = variant === "invoice" ? "invoice" : "standard";
 
-    const buffer = await generateKeihichoWorkbook(receipts, v);
+    const buffer = await generateKeihichoWorkbook(receipts, v, req.nextUrl.origin);
     const filename = `経費帳_${v === "invoice" ? "インボイス仕様_" : ""}${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     return new Response(new Uint8Array(buffer), {

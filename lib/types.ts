@@ -26,6 +26,7 @@ export interface Receipt {
   payment_method: string;
   confidence: number;
   warnings: string[];
+  has_image?: boolean; // 元のレシート画像がSupabase Storageに保存されているか
 }
 
 // 勘定科目リスト

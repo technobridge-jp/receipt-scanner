@@ -5,6 +5,7 @@ import { getCurrentTenantId } from "./tenant";
 
 export interface AuthContext {
   userId: string;
+  userName: string;
   role: string;
   tenantId: string;
 }
@@ -16,11 +17,12 @@ export async function requireAuthContext(req: NextRequest): Promise<AuthContext 
   if (!token?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const userId = token.id as string;
+  const userName = (token.name as string | undefined) || (token.email as string | undefined) || "不明";
   const role = token.role as string;
   const tenantId = await getCurrentTenantId(req, userId, role);
   if (!tenantId) return NextResponse.json({ error: "アクセス可能なテナントが見つかりません" }, { status: 403 });
 
-  return { userId, role, tenantId };
+  return { userId, userName, role, tenantId };
 }
 
 export function isAuthContext(value: AuthContext | NextResponse): value is AuthContext {
