@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // レシート画像の保存先(Supabase Storage, プライベートバケット)。
 //
@@ -16,8 +16,16 @@ import { createClient } from "@supabase/supabase-js";
 //     フォルダ移動が要らず、複数の切り口で見られるという利点がある）
 const BUCKET = "receipt-images";
 
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false },
+// クライアントの生成は、モジュール読み込み時ではなく初回利用時まで遅延する。
+// （ビルド時のページデータ収集でこのモジュールが読み込まれても、環境変数が無い環境（プレビュー等）でビルドが落ちないようにするため）
+let client: SupabaseClient | undefined;
+const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    client ??= createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false },
+    });
+    return Reflect.get(client, prop, receiver);
+  },
 });
 
 function sanitizeSegment(s: string): string {
