@@ -10,7 +10,7 @@
     "seed:demo": "tsx prisma/seed-demo.ts"
   },
   "dependencies": {
-    "@google/genai": "^2.7.0",
+    "@google/genai": "^3.0.0",
     "@prisma/client": "5.22.0",
     "@supabase/supabase-js": "^2.119.0",
     "@tailwindcss/postcss": "^4.3.5",
