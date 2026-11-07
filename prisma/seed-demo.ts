@@ -7,8 +7,11 @@
 //    誤ってADMINに変更されても昇格しない)
 // - 見せ映え用のサンプルレシートを数件投入
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const db = new PrismaClient();
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 const DEMO_TENANT_ID = "demo";
 const DEMO_TENANT_NAME = "デモ商事株式会社";

@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@google/genai": "^3.0.0",
-    "@prisma/client": "5.22.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "@supabase/supabase-js": "^2.119.0",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^24.19.2",
@@ -26,7 +27,7 @@
     "typescript": "^7.0.2"
   },
   "devDependencies": {
-    "prisma": "5.22.0",
+    "prisma": "7.10.1",
     "tsx": "^4.23.15"
   },
   "prisma": {

@@ -11,10 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // 実行時（Prisma Client）はアプリ専用ロール（非BYPASSRLS）で接続し、RLS を効かせる。
-  url      = env("DATABASE_URL")
-  // マイグレーション/DDL は所有者ロールで実行する（RLS の対象外操作のため）。
-  directUrl = env("DIRECT_URL")
+  // Prisma 7: 接続URLは schema ではなく prisma.config.ts（CLI用）と PrismaClient のアダプタ（実行時）で指定する。
 }
 
 enum UserRole {
