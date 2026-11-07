@@ -3,8 +3,11 @@
 // - 実運用の管理者ユーザーをADMIN権限で登録
 // - テストログイン用ユーザー（ENABLE_TEST_LOGIN=true時のみ使われる。本番では到達しない）
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const db = new PrismaClient();
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
 const TENANT_ID = "technobridge";
 const TENANT_NAME = "テクノブリッジ";
