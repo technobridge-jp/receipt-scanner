@@ -1,0 +1,60 @@
+version: 2
+updates:
+  # ─── npm 依存（週次：月曜 9:00 JST） ─────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # 当面は上げないもの（対応待ち。第3回の作業結果を参照）
+    ignore:
+      # typescript-eslint が TypeScript 7 に未対応
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
+      # eslint-config-next 配下のプラグインが ESLint 10 に未対応
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
+      # next-auth は 4.24 系を使用（5 へのメジャーは手動判断）
+      - dependency-name: "next-auth"
+        update-types: ["version-update:semver-major"]
+    groups:
+      # セットで上げないと壊れる組は、メジャーも含めて1本にまとめる（先に書いたものが優先）
+      prisma:
+        patterns:
+          - "prisma"
+          - "@prisma/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+      # パッチ・マイナーは1本のPRにまとめる（メジャーはここに入らず、1件ずつ個別PR）
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ─── GitHub Actions（月次） ─────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
