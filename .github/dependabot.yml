@@ -16,12 +16,13 @@ updates:
       include: "scope"
     # 当面は上げないもの（対応待ち。第3回の作業結果を参照）
     ignore:
-      # typescript-eslint が TypeScript 7 に未対応
-      - dependency-name: "typescript"
-        versions: [">=7.0.0"]
+      # ※receipt-scanner は typescript-eslint 未導入のため TypeScript 7 を使用中。7 系の更新は止めない
       # eslint-config-next 配下のプラグインが ESLint 10 に未対応
       - dependency-name: "eslint"
         versions: [">=10.0.0"]
+      # 実行環境（Vercel / CI）の Node 24 に合わせる
+      - dependency-name: "@types/node"
+        versions: [">=25.0.0"]
       # next-auth は 4.24 系を使用（5 へのメジャーは手動判断）
       - dependency-name: "next-auth"
         update-types: ["version-update:semver-major"]
