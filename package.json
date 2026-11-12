@@ -10,7 +10,7 @@
     "seed:demo": "tsx prisma/seed-demo.ts"
   },
   "dependencies": {
-    "@google/genai": "^3.0.0",
+    "@google/genai": "^3.2.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "@supabase/supabase-js": "^2.119.0",
@@ -18,7 +18,7 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "exceljs": "^4.4.0",
-    "next": "^16.4.5",
+    "next": "^16.4.6",
     "next-auth": "^4.24.15",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
